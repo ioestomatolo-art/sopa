@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Sopa de Letras</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f7f3f0;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .contenedor {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(14, 40px);
+      gap: 4px;
+      user-select: none;
+    }
+    .letra {
+      width: 40px;
+      height: 40px;
+      background-color: #fff;
+      border: 2px solid #800000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.2em;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .seleccionada {
+      background-color: #d1ffd1;
+    }
+    .correcta {
+      background-color: #7ffa05 !important;
+      color: #000;
+      font-weight: bold;
+    }
+    #panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    #palabras {
+      font-size: 1.1em;
+      color: #800000;
+    }
+    #palabras ul {
+      list-style: none;
+      padding: 0;
+    }
+    #palabras li {
+      margin: 5px 0;
+      padding: 4px 6px;
+    }
+    #palabras li.encontrada {
+      color: green;
+      font-weight: bold;
+    }
+    #palabras li.encontrada::after {
+      content: " ✔️";
+    }
+    button {
+      padding: 10px 18px;
+      font-size: 1em;
+      background-color: #800000;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #a52a2a;
+    }
+  </style>
+</head>
+<body>
+  <div class="contenedor">
+    <div id="grid"></div>
+    <div id="panel">
+      <div id="palabras"></div>
+      <button onclick="iniciarJuego()">🔄 Reiniciar</button>
+    </div>
+  </div>
+
+  <script>
+    const listaPalabras = [
+      "CEPILLO","PASTA","ENJUAGUE","DIENTE","SONRISA",
+      "IMPLANTE","CARIES","AZUCAR","LIMPIEZA","HILO",
+      "ENCIA","MORDIDA","SALUD"
+    ];
+    const filas = 14, columnas = 14;
+    let seleccion = "";
+    let encontradas = [];
+    let celdasSeleccionadas = [];
+    let grid = [];
+
+    function iniciarJuego() {
+      const gridDiv = document.getElementById("grid");
+      const palabrasDiv = document.getElementById("palabras");
+      gridDiv.innerHTML = "";
+      palabrasDiv.innerHTML = "";
+
+      encontradas = [];
+      seleccion = "";
+      celdasSeleccionadas = [];
+
+      // Crear lista
+      const ul = document.createElement("ul");
+      listaPalabras.forEach(p => {
+        const li = document.createElement("li");
+        li.textContent = p;
+        li.id = "pal-" + p;
+        ul.appendChild(li);
+      });
+      palabrasDiv.appendChild(ul);
+
+      // Crear tablero vacío
+      grid = Array.from({length: filas}, () => Array(columnas).fill(""));
+
+      // Insertar palabras en distintas direcciones
+      listaPalabras.forEach(palabra => colocarPalabra(palabra));
+
+      // Rellenar huecos con letras aleatorias
+      let letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      for (let f = 0; f < filas; f++) {
+        for (let c = 0; c < columnas; c++) {
+          if (grid[f][c] === "") {
+            grid[f][c] = letras.charAt(Math.floor(Math.random() * letras.length));
+          }
+        }
+      }
+
+      // Pintar tablero
+      for (let f = 0; f < filas; f++) {
+        for (let c = 0; c < columnas; c++) {
+          const div = document.createElement("div");
+          div.classList.add("letra");
+          div.textContent = grid[f][c];
+          div.dataset.fila = f;
+          div.dataset.col = c;
+          div.addEventListener("mousedown", () => empezarSeleccion(div));
+          div.addEventListener("mouseover", () => continuarSeleccion(div));
+          div.addEventListener("mouseup", finalizarSeleccion);
+          div.addEventListener("click", () => clickSeleccion(div));
+          gridDiv.appendChild(div);
+        }
+      }
+    }
+
+    function colocarPalabra(palabra) {
+      const direcciones = [
+        [0,1], [1,0], [1,1], [-1,1], [0,-1], [-1,0], [-1,-1], [1,-1]
+      ];
+      let colocado = false;
+      while (!colocado) {
+        let dir = direcciones[Math.floor(Math.random() * direcciones.length)];
+        let f = Math.floor(Math.random() * filas);
+        let c = Math.floor(Math.random() * columnas);
+        if (puedeColocar(palabra, f, c, dir[0], dir[1])) {
+          for (let i=0;i<palabra.length;i++) {
+            grid[f + i*dir[0]][c + i*dir[1]] = palabra[i];
+          }
+          colocado = true;
+        }
+      }
+    }
+
+    function puedeColocar(palabra, f, c, df, dc) {
+      for (let i=0;i<palabra.length;i++) {
+        let nf = f + i*df;
+        let nc = c + i*dc;
+        if (nf < 0 || nf >= filas || nc < 0 || nc >= columnas) return false;
+        if (grid[nf][nc] !== "" && grid[nf][nc] !== palabra[i]) return false;
+      }
+      return true;
+    }
+
+    let isDragging = false;
+    function empezarSeleccion(celda) {
+      seleccion = "";
+      celdasSeleccionadas.forEach(c => c.classList.remove("seleccionada"));
+      celdasSeleccionadas = [];
+      agregarCelda(celda);
+      isDragging = true;
+    }
+
+    function continuarSeleccion(celda) {
+      if (isDragging) agregarCelda(celda);
+    }
+
+    function finalizarSeleccion() {
+      isDragging = false;
+      verificarSeleccion();
+    }
+
+    function clickSeleccion(celda) {
+      if (!isDragging) {
+        seleccion = "";
+        celdasSeleccionadas.forEach(c => c.classList.remove("seleccionada"));
+        celdasSeleccionadas = [];
+        agregarCelda(celda);
+        verificarSeleccion();
+      }
+    }
+
+    function agregarCelda(celda) {
+      if (!celda.classList.contains("seleccionada")) {
+        celda.classList.add("seleccionada");
+        celdasSeleccionadas.push(celda);
+        seleccion += celda.textContent;
+      }
+    }
+
+    function verificarSeleccion() {
+      listaPalabras.forEach(palabra => {
+        if ((seleccion === palabra || seleccion === palabra.split("").reverse().join("")) && !encontradas.includes(palabra)) {
+          encontradas.push(palabra);
+          document.getElementById("pal-" + palabra).classList.add("encontrada");
+          celdasSeleccionadas.forEach(c => c.classList.add("correcta"));
+        }
+      });
+      seleccion = "";
+      celdasSeleccionadas = [];
+    }
+
+    iniciarJuego();
+  </script>
+</body>
+</html>
